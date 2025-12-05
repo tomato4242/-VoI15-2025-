@@ -1,0 +1,56 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>怠惰是正アプリ</title>
+    <!-- CSSファイルを読み込む -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>怠惰是正リスト</h1>
+            <!-- このボタンを押すとJavaScriptでモーダルが開く -->
+            <button id="openModalBtn" class="add-btn">＋ 新しいタスクを追加</button>
+        </header>
+
+        <main>
+            <ul class="task-list">
+                <!-- Python(Flask)から渡された'tasks'リストをループ処理で表示する -->
+                <!-- Jinja2というテンプレートエンジンの構文 -->
+                {% for task in tasks %}
+                    <li class="task-item">
+                        <span>{{ task.title }}</span>
+                        <!-- 削除ボタン。クリックすると'/delete/タスクID'にPOSTリクエストを送信するフォーム -->
+                        <form action="{{ url_for('delete_task', task_id=task.id) }}" method="post" style="display: inline;">
+                            <button type="submit" class="delete-btn">削除</button>
+                        </form>
+                    </li>
+                {% else %}
+                    <!-- tasksリストが空の場合にこのメッセージを表示する -->
+                    <li class="no-task">タスクはまだありません。怠惰を克服する第一歩を踏み出そう！</li>
+                {% endfor %}
+            </ul>
+        </main>
+    </div>
+
+    <!-- タスク追加用モーダル（ポップアップ）。最初は非表示になっている。 -->
+    <div id="addTaskModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>新しいタスクを追加</h2>
+            <!-- タスク追加フォーム。送信先は'/add'で、送信方法はPOST。 -->
+            <form action="{{ url_for('add_task') }}" method="post">
+                <input type="text" name="task_title" placeholder="やるべきこと" required>
+                <button type="submit">追加する</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScriptファイルを読み込む。bodyの最後で読み込むのが一般的。 -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
