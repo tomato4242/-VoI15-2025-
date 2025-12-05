@@ -1,6 +1,4 @@
-# app.py
-
-# Flaskというライブラリから、必要な機能（Flask本体、ページの表示、リクエストの受け取りなど）を読み込む。
+# Flaskから、必要な機能（Flask本体、ページの表示、リクエストの受け取りなど）を読み込む。
 from flask import Flask, render_template, request, redirect, url_for
 
 # Flaskアプリの本体を作成する。
@@ -8,7 +6,6 @@ app = Flask(__name__)
 
 # --- データ保管場所 ---
 # 本来はデータベースを使うが、今回は簡単にするため、Pythonのリスト（配列）にタスクを保存する。
-# そのため、サーバーを再起動するとデータは消える。ハッカソンのデモとしてはまずこの形でOK。
 tasks = []
 # タスクにユニークなIDを振るためのカウンター。
 task_id_counter = 1
@@ -55,7 +52,6 @@ def add_task():
 # URLの一部（<int:task_id>）を引数として受け取れる。
 @app.route('/delete/<int:task_id>', methods=['POST'])
 def delete_task(task_id):
-    # global tasks  # リストの要素を変更するだけなので、global宣言は不要
     
     # tasksリストから、指定されたidと一致しないタスクだけを残す。
     # これにより、指定されたidのタスクが事実上削除される。
