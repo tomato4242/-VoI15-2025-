@@ -1,4 +1,3 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -20,7 +19,6 @@
         <main>
             <ul class="task-list">
                 <!-- Python(Flask)から渡された'tasks'リストをループ処理で表示する -->
-                <!-- Jinja2というテンプレートエンジンの構文 -->
                 {% for task in tasks %}
                     <li class="task-item">
                         <span>{{ task.title }}</span>
@@ -50,7 +48,7 @@
         </div>
     </div>
 
-    <!-- JavaScriptファイルを読み込む。 -->
+    <!-- JavaScriptファイルを読み込む。bodyの最後で読み込むのが一般的。 -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
