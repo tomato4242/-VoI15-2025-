@@ -1,56 +1,94 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>怠惰是正アプリ</title>
-    <!-- CSSファイルを読み込む -->
+    <title>Social Guillotine - 怠惰是正アプリ</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
     <div class="container">
         <header>
-            <h1>怠惰是正リスト</h1>
-            <!-- このボタンを押すとJavaScriptでモーダルが開く -->
-            <button id="openModalBtn" class="add-btn">＋ 新しいタスクを追加</button>
+            <h1 class="app-title">☠️ Social Guillotine</h1>
+            <p class="subtitle">怠惰は「社会的な死」で償え。</p>
+            <button id="openModalBtn" class="add-btn">⚠️ 契約書に署名（タスク追加）</button>
         </header>
 
         <main>
             <ul class="task-list">
-                <!-- Python(Flask)から渡された'tasks'リストをループ処理で表示する -->
-                <!-- Jinja2というテンプレートエンジンの構文 -->
                 {% for task in tasks %}
-                    <li class="task-item">
-                        <span>{{ task.title }}</span>
-                        <!-- 削除ボタン。クリックすると'/delete/タスクID'にPOSTリクエストを送信するフォーム -->
-                        <form action="{{ url_for('delete_task', task_id=task.id) }}" method="post" style="display: inline;">
-                            <button type="submit" class="delete-btn">削除</button>
+                    <li class="task-item {% if task.is_punished %}expired{% endif %}">
+                        <div class="task-info">
+                            <span class="task-name">{{ task.title }}</span>
+                            
+                            <div class="task-meta">
+                                {% if task.deadline %}
+                                    <span class="deadline">⏳ {{ task.deadline.strftime('%Y/%m/%d %H:%M') }}</span>
+                                {% endif %}
+                                {% if task.penalty_text %}
+                                    <span class="penalty">💣 罰: {{ task.penalty_text }}</span>
+                                {% endif %}
+                            </div>
+
+                            {% if task.is_punished %}
+                                <div class="punished-msg">💀 執行済み：ツイートが送信されました</div>
+                            {% endif %}
+                        </div>
+
+                        <form action="{{ url_for('delete_task', task_id=task.id) }}" method="post">
+                            <button type="submit" class="delete-btn">解除（完了）</button>
                         </form>
                     </li>
                 {% else %}
-                    <!-- tasksリストが空の場合にこのメッセージを表示する -->
-                    <li class="no-task">タスクはまだありません。怠惰を克服する第一歩を踏み出そう！</li>
+                    <li class="no-task">現在、命（プライド）は安全です。</li>
                 {% endfor %}
             </ul>
         </main>
     </div>
 
-    <!-- タスク追加用モーダル（ポップアップ）。最初は非表示になっている。 -->
     <div id="addTaskModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content input-mode">
             <span class="close-btn">&times;</span>
-            <h2>新しいタスクを追加</h2>
-            <!-- タスク追加フォーム。送信先は'/add'で、送信方法はPOST。 -->
+            <h2>💀 処刑契約書の作成</h2>
             <form action="{{ url_for('add_task') }}" method="post">
-                <input type="text" name="task_title" placeholder="やるべきこと" required>
-                <button type="submit">追加する</button>
+                
+                <label>義務（タスク内容）</label>
+                <input type="text" name="task_title" placeholder="例：明日の1限に出席する" required>
+
+                <label>期限（Time Limit）</label>
+                <input type="datetime-local" name="deadline" required>
+
+                <label style="color: #e74c3c; font-weight: bold;">不履行時の社会的制裁（自動投稿）</label>
+                <textarea name="penalty_text" placeholder="例：私は口だけの無能です。明日〇〇で奢ります。" required></textarea>
+
+                <button type="submit" class="danger-btn">🩸 血判を押して追加</button>
             </form>
         </div>
     </div>
 
-    <!-- JavaScriptファイルを読み込む。 -->
+    <div id="fakeTweetModal" class="modal tweet-modal">
+        <div class="modal-content tweet-content">
+            <h3 style="color: #1da1f2;">Twitter (X) 自動投稿通知</h3>
+            <p>以下の内容があなたのアカウントから投稿されました。</p>
+            
+            <div class="fake-tweet-card">
+                <div class="tweet-header">
+                    <div class="tweet-icon"></div>
+                    <div class="tweet-name">あなたの名前 <span style="color:gray">@lazy_student</span></div>
+                </div>
+                <div class="tweet-body" id="tweetTextDisplay">
+                    </div>
+                <div class="tweet-footer">
+                    <span>💬 12</span> <span>Undefined 89</span> <span>❤️ 204</span>
+                </div>
+            </div>
+
+            <p style="margin-top: 20px; color: red; font-weight: bold;">社会的信用が失墜しました。</p>
+            <button onclick="closeTweetModal()" class="close-tweet-btn">絶望して閉じる</button>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
