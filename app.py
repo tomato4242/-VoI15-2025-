@@ -1,71 +1,116 @@
-# Flaskから、必要な機能（Flask本体、ページの表示、リクエストの受け取りなど）を読み込む。
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask_apscheduler import APScheduler # スケジュール実行用
+from datetime import datetime # 時間管理用
+from plyer import notification # PC通知用（補助的）
 
-# Flaskアプリの本体を作成する。
+# --- 設定クラス ---
+class Config:
+    SCHEDULER_API_ENABLED = True
+
 app = Flask(__name__)
+app.config.from_object(Config())
 
-# --- データ保管場所 ---
-# 本来はデータベースを使うが、今回は簡単にするため、Pythonのリスト（配列）にタスクを保存する。
+# --- データ保管場所（簡易データベース） ---
+# ここにタスクを保存します。
 tasks = []
-# タスクにユニークなIDを振るためのカウンター。
 task_id_counter = 1
 
+# スケジューラの初期化（定期実行ツールの起動）
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
 
-# --- ルーティング（URLとプログラムの紐付け） ---
+# --- 定期実行する関数（監視役） ---
+# 5秒ごとに実行して、期限切れがないかチェックします
+@scheduler.task('interval', id='check_deadlines', seconds=5)
+def check_deadlines():
+    now = datetime.now()
+    
+    with app.app_context(): # Flaskのアプリ内で実行
+        for task in tasks:
+            # 「まだ罰を受けていない」かつ「期限を過ぎている」場合
+            if not task['is_punished'] and task['deadline'] and task['deadline'] < now:
+                
+                # 1. データを更新（執行済みにする）
+                task['is_punished'] = True
+                task['needs_popup'] = True # ブラウザでポップアップを出すための合図
+                
+                # 2. PCのデスクトップ通知（念の為の補助通知）
+                try:
+                    notification.notify(
+                        title='💀 社会的死 執行 💀',
+                        message=f"仮想ツイートが送信されました。\n罰: {task['penalty_text']}",
+                        app_name='Social Guillotine',
+                        timeout=10
+                    )
+                except:
+                    pass # Mac/Winの環境差でエラーが出ても止まらないようにする
+                
+                print(f"【執行】タスク「{task['title']}」が期限切れ。仮想ツイートフラグを立てました。")
 
-# ルートURL ('/') にアクセスがあったときの処理を定義する。
-# GETメソッド（通常のページアクセス）の場合にこの関数が呼ばれる。
+# --- ルーティング（画面遷移の設定） ---
+
 @app.route('/')
 def index():
-    # 'index.html'というファイルをブラウザに表示する。
-    # このとき、'tasks'という名前でPythonのtasksリストをHTML側に渡す。
+    # トップページを表示。タスク一覧を渡す。
     return render_template('index.html', tasks=tasks)
 
-
-# '/add' というURLにPOSTメソッド（フォーム送信など）でアクセスがあったときの処理を定義する。
 @app.route('/add', methods=['POST'])
 def add_task():
-    # グローバル変数を関数内で変更するために宣言する。
     global task_id_counter
-    
-    # 送信されたフォームの中から'task_title'という名前のデータを取得する。
+    # フォームからデータを受け取る
     title = request.form.get('task_title')
-    
-    # titleが空でなく、中身がある場合のみ処理を実行する。
+    deadline_str = request.form.get('deadline') 
+    penalty_text = request.form.get('penalty_text')
+
     if title:
-        # 新しいタスクを辞書（キーと値のペア）として作成する。
+        # 日付文字列をdatetimeオブジェクトに変換
+        deadline_dt = None
+        if deadline_str:
+            try:
+                deadline_dt = datetime.strptime(deadline_str, '%Y-%m-%dT%H:%M')
+            except ValueError:
+                pass 
+
+        # 新しいタスクを作成
         new_task = {
             'id': task_id_counter,
             'title': title,
+            'deadline': deadline_dt,       
+            'penalty_text': penalty_text,  
+            'is_punished': False,          # 期限切れか？
+            'needs_popup': False           # フロントエンドで演出を表示すべきか？
         }
-        # 作成したタスクをtasksリストに追加する。
         tasks.append(new_task)
-        # 次のタスクのためにIDカウンターを1増やす。
         task_id_counter += 1
         
-    # すべての処理が終わったら、ルートURL('/')にリダイレクト（ページを移動）させる。
-    # これにより、タスク追加後にトップページが再表示され、最新のリストが見える。
     return redirect(url_for('index'))
 
-
-# '/delete/<int:task_id>' というURLにアクセスがあったときの処理を定義する。
-# URLの一部（<int:task_id>）を引数として受け取れる。
 @app.route('/delete/<int:task_id>', methods=['POST'])
 def delete_task(task_id):
-    
-    # tasksリストから、指定されたidと一致しないタスクだけを残す。
-    # これにより、指定されたidのタスクが事実上削除される。
-    # list comprehensionというPythonの書き方。
-    tasks[:] = [task for task in tasks if task['id'] != task_id]
-
-    # 処理が終わったら、ルートURL('/')にリダイレクトする。
+    # タスクを削除（完了）
+    # リスト内包表記を使って、指定ID以外のタスクだけを残す
+    global tasks
+    tasks = [task for task in tasks if task['id'] != task_id]
     return redirect(url_for('index'))
 
+# --- 【重要】フロントエンドからのポーリング用API ---
+# ブラウザが「何か爆発したタスクある？」と定期的に聞きに来る場所
+@app.route('/check_punishments')
+def check_punishments():
+    punished_tasks = []
+    for task in tasks:
+        # ポップアップ表示が必要なタスクを探す
+        if task.get('needs_popup'):
+            punished_tasks.append({
+                'title': task['title'],
+                'penalty_text': task['penalty_text']
+            })
+            task['needs_popup'] = False # 一度送ったらフラグを下ろす（何度も出ないように）
+    
+    # JSON形式でブラウザに返す
+    return jsonify(punished_tasks)
 
-# --- サーバーの起動 ---
-
-# このファイルが直接実行された場合にのみ、以下の処理を行う。
 if __name__ == '__main__':
-    # Flaskの開発用サーバーを起動する。
-    # debug=Trueにすると、コードを変更したときに自動でサーバーが再起動して便利。
-    app.run(debug=True)
+    # アプリ起動
+    app.run(debug=True, use_reloader=False)
