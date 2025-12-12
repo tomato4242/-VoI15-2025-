@@ -1,100 +1,127 @@
-# sqlite3を操作するためのライブラリを読み込む。
-import sqlite3
-from flask import Flask, render_template, request, redirect, url_for
+# --- モジュールのインポート ---
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+from flask_apscheduler import APScheduler
+from datetime import datetime
+import random
+import os
+from dotenv import load_dotenv
 
-# Flaskアプリの本体を作成する。
+# ★ GoogleのAIライブラリをインポート
+import google.generativeai as genai
+
+# --- 初期設定 ---
+load_dotenv()
 app = Flask(__name__)
+app.secret_key = 'social-guillotine-secret-key'
 
-# --- データベース設定 ---
-DATABASE = 'tasks.db' # データベースファイルの名前を定義
-
-# データベースへの接続を確立する関数
-def get_db():
-    # データベースに接続する。ファイルがなければ新しく作成される。
-    conn = sqlite3.connect(DATABASE)
-    # 辞書形式で結果を取得できるように設定する
-    conn.row_factory = sqlite3.Row
-    return conn
-
-# アプリ起動時に一度だけ実行される、データベースの初期化関数
-def init_db():
-    # get_db()を使ってデータベースに接続
-    with get_db() as conn:
-        # 'schema.sql'というファイルからSQL文を読み込んで実行する
-        # （直接SQL文を記述する）
-        
-        # テーブルを作成するSQL文
-        # "IF NOT EXISTS" をつけておくことで、既にテーブルが存在する場合にエラーになるのを防ぐ
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL
-            );
-        ''')
-        # 変更を確定する
-        conn.commit()
+# ★ Google Gemini APIキーを設定
+#   genai.configure() を使って設定します
+try:
+    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+except Exception as e:
+    print(f"【APIキー設定エラー】: {e}")
 
 
-# --- ルーティング（URLとプログラムの紐付け） ---
-
-# ルートURL ('/') にアクセスがあったときの処理
-@app.route('/')
-def index():
-    # データベースに接続
-    conn = get_db()
-    # tasksテーブルからすべてのデータを取得するSQLを実行
-    # ORDER BY id DESC で、新しいタスクが上にくるように並び替える
-    cursor = conn.execute('SELECT id, title FROM tasks ORDER BY id DESC')
-    # 実行結果をすべて取得する
-    tasks = cursor.fetchall()
-    # データベース接続を閉じる
-    conn.close()
-    
-    # 取得したtasksデータをHTML側に渡して表示する
-    return render_template('index.html', tasks=tasks)
+# --- データ保管場所（簡易データベース） ---
+tasks = []
+task_id_counter = 1
 
 
-# '/add' というURLにPOSTメソッドでアクセスがあったときの処理
-@app.route('/add', methods=['POST'])
-def add_task():
-    # 送信されたフォームの中から'task_title'という名前のデータを取得する
-    title = request.form.get('task_title')
-    
-    # titleが空でない場合のみ処理を実行
-    if title:
-        # データベースに接続
-        conn = get_db()
-        # tasksテーブルに新しいデータを挿入するSQLを実行
-        # '?' はプレースホルダと呼ばれ、後から安全に値を埋め込むためのもの
-        conn.execute('INSERT INTO tasks (title) VALUES (?)', (title,))
-        # 変更を確定（コミット）する
-        conn.commit()
-        # データベース接続を閉じる
-        conn.close()
-        
-    # 処理が終わったら、ルートURL('/')にリダイレクトする
-    return redirect(url_for('index'))
+# --- バックアップの褒め言葉生成関数（変更なし） ---
+def generate_backup_praise_message():
+    messages = [
+        "素晴らしい！完璧な仕事ぶりですね！", "やりましたね！この調子でいきましょう！",
+        "見事です！あなたは怠惰とは無縁ですね。", "お疲れ様でした。早期完了、さすがです！"
+    ]
+    return random.choice(messages)
+
+# ★★★★★ ここからがGoogle Geminiを呼び出す機能です ★★★★★
+def generate_praise_with_ai(task_title):
+    """Google Gemini APIを使用してタスク完了の褒め言葉を生成"""
+    try:
+        model = genai.GenerativeModel('"gemini-3-pro-preview"')
+        prompt = f"""
+        あなたは、ユーザーを励ますのが得意な、非常にポジティブなAIアシスタントです。
+        ユーザーが完了したタスク「{task_title}」を褒めてください。
+        簡潔に、日本語で、絵文字を交えて賞賛の言葉を生成してください。
+        """
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        print(f"Google AI APIエラー: {e}")
+        return generate_backup_praise_message()
+
+# ★★★★★ ここまでがAI関連の機能です ★★★★★
 
 
-# '/delete/<int:task_id>' というURLにアクセスがあったときの処理
+# --- /delete ルート（変更なし） ---
 @app.route('/delete/<int:task_id>', methods=['POST'])
 def delete_task(task_id):
-    # データベースに接続
-    conn = get_db()
-    # 指定されたidのデータをtasksテーブルから削除するSQLを実行
-    conn.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
-    # 変更を確定する
-    conn.commit()
-    # データベース接続を閉じる
-    conn.close()
+    global tasks
+    task_to_delete = next((task for task in tasks if task['id'] == task_id), None)
     
-    # 処理が終わったら、ルートURL('/')にリダイレクトする
+    if task_to_delete:
+        if task_to_delete['deadline'] and task_to_delete['deadline'] > datetime.now():
+            task_title = task_to_delete.get('title', '素晴らしいタスク')
+            
+            # ★ この関数の中身がGoogle Gemini用に変わっています
+            message = generate_praise_with_ai(task_title)
+            
+            flash(message, 'success')
+            print(f"【早期完了】Google AIからのメッセージ: {message}")
+
+    tasks = [task for task in tasks if task['id'] != task_id]
     return redirect(url_for('index'))
 
+# --- 他のルーティングやスケジューラ、アプリ起動のコード ---
+# (中略：変更なし)
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
 
-# --- サーバーの起動 ---
+@app.route('/')
+def index():
+    return render_template('index.html', tasks=tasks)
+
+@app.route('/add', methods=['POST'])
+def add_task():
+    global task_id_counter
+    title = request.form.get('task_title')
+    deadline_str = request.form.get('deadline') 
+    penalty_text = request.form.get('penalty_text')
+
+    if title:
+        deadline_dt = None
+        if deadline_str:
+            try:
+                deadline_dt = datetime.strptime(deadline_str, '%Y-%m-%dT%H:%M')
+            except ValueError:
+                pass 
+
+        new_task = {
+            'id': task_id_counter,
+            'title': title,
+            'deadline': deadline_dt,       
+            'penalty_text': penalty_text,  
+            'is_punished': False,
+            'needs_popup': False
+        }
+        tasks.append(new_task)
+        task_id_counter += 1
+        
+    return redirect(url_for('index'))
+
+@app.route('/check_punishments')
+def check_punishments():
+    punished_tasks = []
+    for task in tasks:
+        if task.get('needs_popup'):
+            punished_tasks.append({
+                'title': task['title'],
+                'penalty_text': task['penalty_text']
+            })
+            task['needs_popup'] = False
+    return jsonify(punished_tasks)
+
 if __name__ == '__main__':
-    # アプリを起動する前に、データベースの初期化を行う
-    init_db()
-    # Flaskの開発用サーバーを起動する
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)
