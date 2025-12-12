@@ -1,24 +1,27 @@
 // static/script.js
 
 document.addEventListener('DOMContentLoaded', function() {
-    // --- 要素の取得 ---
     const modal = document.getElementById('addTaskModal');
     const openModalBtn = document.getElementById('openModalBtn');
     const closeBtns = document.querySelectorAll('.close-btn');
     const fakeTweetModal = document.getElementById('fakeTweetModal');
     const tweetTextDisplay = document.getElementById('tweetTextDisplay');
+    const praiseModal = document.getElementById('praiseModal'); // ★ 変更点1: 褒め言葉モーダルを取得
 
     // --- タスク追加モーダルの開閉 ---
     
     // 「契約書に署名」ボタン
-    openModalBtn.onclick = function() {
-        modal.style.display = 'block';
+    if (openModalBtn) { 
+        openModalBtn.onclick = function() {
+            modal.style.display = 'block';
+        }
     }
 
     // ×ボタンで閉じる（全ての×ボタンに対応）
     closeBtns.forEach(btn => {
         btn.onclick = function() {
-            modal.style.display = 'none';
+            // クリックされたボタンが属する一番近いモーダル(.modal)を閉じる
+            btn.closest('.modal').style.display = 'none';
         }
     });
 
@@ -26,6 +29,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.onclick = function(event) {
         if (event.target == modal) {
             modal.style.display = 'none';
+        }
+        if (praiseModal && event.target == praiseModal) {
+            praiseModal.style.display = 'none';
         }
     }
 
@@ -64,12 +70,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // モーダルを表示
         fakeTweetModal.style.display = 'block';
-
-        // ページのリロード（リストの見た目を更新するため）は、ユーザーが閉じた後でも良いが、
-        // ここでは裏側でリストを更新したいので、少し待ってからリロードしてもよい。
-        // デモ用なので、モーダルを閉じたタイミングでリロードさせるようにします。
     }
 
+        // ページのリロード（リストの見た目を更新するため）は、ユーザーが閉じた後でも良いが、
+    // ここでは裏側でリストを更新したいので、少し待ってからリロードしてもよい。
+    // デモ用なので、モーダルを閉じたタイミングでリロードさせるようにします
+
+    
     // 偽ツイートモーダルを閉じるボタン（グローバル関数として定義）
     window.closeTweetModal = function() {
         fakeTweetModal.style.display = 'none';

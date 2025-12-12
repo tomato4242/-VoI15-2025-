@@ -1,70 +1,96 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
-from flask_apscheduler import APScheduler # スケジュール実行用
-from datetime import datetime # 時間管理用
-from plyer import notification # PC通知用（補助的）
+# --- モジュールのインポート ---
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+from flask_apscheduler import APScheduler
+from datetime import datetime
+import random
+import os
+from dotenv import load_dotenv
 
-# --- 設定クラス ---
-class Config:
-    SCHEDULER_API_ENABLED = True
+# ★ GoogleのAIライブラリをインポート
+import google.generativeai as genai
 
+# --- 初期設定 ---
+load_dotenv()
 app = Flask(__name__)
-app.config.from_object(Config())
+app.secret_key = 'social-guillotine-secret-key'
+
+# ★ Google Gemini APIキーを設定
+#   genai.configure() を使って設定します
+try:
+    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+except Exception as e:
+    print(f"【APIキー設定エラー】: {e}")
+
 
 # --- データ保管場所（簡易データベース） ---
-# ここにタスクを保存します。
 tasks = []
 task_id_counter = 1
 
-# スケジューラの初期化（定期実行ツールの起動）
+
+# --- バックアップの褒め言葉生成関数（変更なし） ---
+def generate_backup_praise_message():
+    messages = [
+        "素晴らしい！完璧な仕事ぶりですね！", "やりましたね！この調子でいきましょう！",
+        "見事です！あなたは怠惰とは無縁ですね。", "お疲れ様でした。早期完了、さすがです！"
+    ]
+    return random.choice(messages)
+
+# ★★★★★ ここからがGoogle Geminiを呼び出す機能です ★★★★★
+def generate_praise_with_ai(task_title):
+    """Google Gemini APIを使用してタスク完了の褒め言葉を生成"""
+    try:
+        model = genai.GenerativeModel('"gemini-3-pro-preview"')
+        prompt = f"""
+        あなたは、ユーザーを励ますのが得意な、非常にポジティブなAIアシスタントです。
+        ユーザーが完了したタスク「{task_title}」を褒めてください。
+        簡潔に、日本語で、絵文字を交えて賞賛の言葉を生成してください。
+        """
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        print(f"Google AI APIエラー: {e}")
+        return generate_backup_praise_message()
+
+# ★★★★★ ここまでがAI関連の機能です ★★★★★
+
+
+# --- /delete ルート（変更なし） ---
+@app.route('/delete/<int:task_id>', methods=['POST'])
+def delete_task(task_id):
+    global tasks
+    task_to_delete = next((task for task in tasks if task['id'] == task_id), None)
+    
+    if task_to_delete:
+        if task_to_delete['deadline'] and task_to_delete['deadline'] > datetime.now():
+            task_title = task_to_delete.get('title', '素晴らしいタスク')
+            
+            # ★ この関数の中身がGoogle Gemini用に変わっています
+            message = generate_praise_with_ai(task_title)
+            
+            flash(message, 'success')
+            print(f"【早期完了】Google AIからのメッセージ: {message}")
+
+    tasks = [task for task in tasks if task['id'] != task_id]
+    return redirect(url_for('index'))
+
+# --- 他のルーティングやスケジューラ、アプリ起動のコード ---
+# (中略：変更なし)
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
 
-# --- 定期実行する関数（監視役） ---
-# 5秒ごとに実行して、期限切れがないかチェックします
-@scheduler.task('interval', id='check_deadlines', seconds=5)
-def check_deadlines():
-    now = datetime.now()
-    
-    with app.app_context(): # Flaskのアプリ内で実行
-        for task in tasks:
-            # 「まだ罰を受けていない」かつ「期限を過ぎている」場合
-            if not task['is_punished'] and task['deadline'] and task['deadline'] < now:
-                
-                # 1. データを更新（執行済みにする）
-                task['is_punished'] = True
-                task['needs_popup'] = True # ブラウザでポップアップを出すための合図
-                
-                # 2. PCのデスクトップ通知（念の為の補助通知）
-                try:
-                    notification.notify(
-                        title='💀 社会的死 執行 💀',
-                        message=f"仮想ツイートが送信されました。\n罰: {task['penalty_text']}",
-                        app_name='Social Guillotine',
-                        timeout=10
-                    )
-                except:
-                    pass # Mac/Winの環境差でエラーが出ても止まらないようにする
-                
-                print(f"【執行】タスク「{task['title']}」が期限切れ。仮想ツイートフラグを立てました。")
-
-# --- ルーティング（画面遷移の設定） ---
-
 @app.route('/')
 def index():
-    # トップページを表示。タスク一覧を渡す。
     return render_template('index.html', tasks=tasks)
 
 @app.route('/add', methods=['POST'])
 def add_task():
     global task_id_counter
-    # フォームからデータを受け取る
     title = request.form.get('task_title')
     deadline_str = request.form.get('deadline') 
     penalty_text = request.form.get('penalty_text')
 
     if title:
-        # 日付文字列をdatetimeオブジェクトに変換
         deadline_dt = None
         if deadline_str:
             try:
@@ -72,45 +98,30 @@ def add_task():
             except ValueError:
                 pass 
 
-        # 新しいタスクを作成
         new_task = {
             'id': task_id_counter,
             'title': title,
             'deadline': deadline_dt,       
             'penalty_text': penalty_text,  
-            'is_punished': False,          # 期限切れか？
-            'needs_popup': False           # フロントエンドで演出を表示すべきか？
+            'is_punished': False,
+            'needs_popup': False
         }
         tasks.append(new_task)
         task_id_counter += 1
         
     return redirect(url_for('index'))
 
-@app.route('/delete/<int:task_id>', methods=['POST'])
-def delete_task(task_id):
-    # タスクを削除（完了）
-    # リスト内包表記を使って、指定ID以外のタスクだけを残す
-    global tasks
-    tasks = [task for task in tasks if task['id'] != task_id]
-    return redirect(url_for('index'))
-
-# --- 【重要】フロントエンドからのポーリング用API ---
-# ブラウザが「何か爆発したタスクある？」と定期的に聞きに来る場所
 @app.route('/check_punishments')
 def check_punishments():
     punished_tasks = []
     for task in tasks:
-        # ポップアップ表示が必要なタスクを探す
         if task.get('needs_popup'):
             punished_tasks.append({
                 'title': task['title'],
                 'penalty_text': task['penalty_text']
             })
-            task['needs_popup'] = False # 一度送ったらフラグを下ろす（何度も出ないように）
-    
-    # JSON形式でブラウザに返す
+            task['needs_popup'] = False
     return jsonify(punished_tasks)
 
 if __name__ == '__main__':
-    # アプリ起動
     app.run(debug=True, use_reloader=False)

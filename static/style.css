@@ -121,6 +121,7 @@ header {
     padding: 8px 12px;
     border-radius: 5px;
     cursor: pointer;
+    margin-left: 15px; /* 右側に余白 */
 }
 
 .delete-btn:hover {
@@ -184,10 +185,16 @@ input[type="text"], input[type="datetime-local"], textarea {
 
 .close-btn {
     color: #aaa;
-    float: right;
+    position: absolute;
+    top: 10px;
+    right: 20px;
     font-size: 28px;
     font-weight: bold;
     cursor: pointer;
+}
+
+.close-btn:hover, .close-btn:focus {
+    color: #fff;
 }
 
 /* --- 偽ツイート演出用スタイル --- */
@@ -200,66 +207,48 @@ input[type="text"], input[type="datetime-local"], textarea {
 }
 
 @keyframes shake {
-    0% { transform: translate(1px, 1px) rotate(0deg); }
-    10% { transform: translate(-1px, -2px) rotate(-1deg); }
-    20% { transform: translate(-3px, 0px) rotate(1deg); }
-    30% { transform: translate(3px, 2px) rotate(0deg); }
-    40% { transform: translate(1px, -1px) rotate(1deg); }
-    50% { transform: translate(-1px, 2px) rotate(-1deg); }
-    60% { transform: translate(-3px, 1px) rotate(0deg); }
-    70% { transform: translate(3px, 1px) rotate(-1deg); }
-    80% { transform: translate(-1px, -1px) rotate(1deg); }
-    90% { transform: translate(1px, 2px) rotate(0deg); }
-    100% { transform: translate(1px, -2px) rotate(-1deg); }
+    0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); }
 }
 
 .fake-tweet-card {
-    border: 1px solid #e1e8ed;
-    border-radius: 12px;
-    padding: 15px;
-    text-align: left;
-    margin: 20px 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    border: 1px solid #e1e8ed; border-radius: 12px; padding: 15px; text-align: left; margin: 20px 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
-
 .tweet-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 10px;
+    display: flex; align-items: center; margin-bottom: 10px;
 }
-
 .tweet-icon {
-    width: 48px;
-    height: 48px;
-    background-color: #ccc;
-    border-radius: 50%;
-    margin-right: 10px;
-    background-image: url('https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png'); /* デフォルトアイコン */
-    background-size: cover;
+    width: 48px; height: 48px; background-color: #ccc; border-radius: 50%; margin-right: 10px; background-image: url('https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png'); background-size: cover;
+}
+.tweet-name { font-weight: bold; }
+.tweet-body { font-size: 18px; line-height: 1.4; margin-bottom: 15px; }
+.tweet-footer { color: #657786; font-size: 14px; display: flex; gap: 20px; }
+.close-tweet-btn { background-color: #333; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; }
+
+
+/* --- ★ AIからの褒め言葉モーダル用スタイル ★ --- */
+.praise-modal-content {
+    text-align: center;
+    border-top: 10px solid #2ecc71; /* ポジティブな緑色 */
+    color: #fff;
+    background: linear-gradient(145deg, #3a3a3a, #222); /* ちょっとリッチなグラデーション背景 */
+    animation: fadeIn 0.5s; /* ふわっと表示されるアニメーション */
 }
 
-.tweet-name {
-    font-weight: bold;
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
 }
 
-.tweet-body {
-    font-size: 18px;
-    line-height: 1.4;
+.praise-title {
+    color: #2ecc71;
+    font-size: 2em;
     margin-bottom: 15px;
 }
 
-.tweet-footer {
-    color: #657786;
-    font-size: 14px;
-    display: flex;
-    gap: 20px;
-}
-
-.close-tweet-btn {
-    background-color: #333;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 20px;
-    cursor: pointer;
+.praise-message {
+    font-size: 1.2em;
+    line-height: 1.6;
+    color: #ddd;
+    min-height: 50px; /* メッセージが短くても高さが潰れないように */
+    white-space: pre-wrap; /* AIが改行を入れた場合も反映されるように */
 }
