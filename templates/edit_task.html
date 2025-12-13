@@ -1,0 +1,307 @@
+<!-- templates/edit_task.html - タスク編集ページ -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスク編集 - Social Guillotine</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="container">
+        <!-- ヘッダー -->
+        <header>
+            <h1 class="app-title">☠️ Social Guillotine</h1>
+            <p class="subtitle">タスクを編集する</p>
+            <a href="{{ url_for('index') }}" class="back-link">← タスク一覧に戻る</a>
+        </header>
+
+        <!-- 編集フォーム -->
+        <div class="edit-task-section">
+            <form action="{{ url_for('edit_task', task_id=task.id) }}" method="post" class="task-edit-form">
+                <div class="form-group">
+                    <label>📋 タスク名</label>
+                    <input 
+                        type="text" 
+                        name="task_title" 
+                        value="{{ task.title }}" 
+                        placeholder="例：明日の1限に出席する" 
+                        maxlength="200"
+                        required
+                    >
+                    <small>現在: {{ task.title }}</small>
+                </div>
+
+                <div class="form-group">
+                    <label>⏰ 期限</label>
+                    <input 
+                        type="datetime-local" 
+                        name="deadline"
+                        value="{% if task.deadline %}{{ task.deadline.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
+                        required
+                    >
+                    <small>
+                        {% if task.deadline %}
+                            現在: {{ task.deadline.strftime('%Y年%m月%d日 %H:%M') }}
+                        {% else %}
+                            期限が設定されていません
+                        {% endif %}
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label style="color: #e74c3c; font-weight: bold;">💀 期限を守れなかった時の投稿内容</label>
+                    <textarea 
+                        name="penalty_text" 
+                        placeholder="例：今日も一限に起きられませんでした。明日山田にご飯を奢ります。" 
+                        maxlength="500"
+                        required
+                    >{{ task.penalty_text }}</textarea>
+                    <small style="color: #e74c3c;">
+                        このテキストが自動投稿されます（現在: {{ task.penalty_text[:30] }}...）
+                    </small>
+                </div>
+
+                <!-- タスク情報表示 -->
+                <div class="task-info-box">
+                    <h3>📌 タスク情報</h3>
+                    <div class="info-item">
+                        <span class="label">作成日時:</span>
+                        <span class="value">{{ task.created_at.strftime('%Y年%m月%d日 %H:%M') }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="label">ステータス:</span>
+                        <span class="value">
+                            {% if task.is_punished %}
+                                <span style="color: #e74c3c;">💀 処罰済み</span>
+                            {% elif task.is_completed %}
+                                <span style="color: #2ecc71;">✅ 完了</span>
+                            {% else %}
+                                <span style="color: #3498db;">⏳ 進行中</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- ボタングループ -->
+                <div class="form-actions">
+                    <button type="submit" class="btn-save">💾 更新</button>
+                    <a href="{{ url_for('index') }}" class="btn-cancel">キャンセル</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Flashメッセージ表示 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div id="flashContainer" class="flash-container">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            <span>{{ message }}</span>
+                            <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <style>
+        .back-link {
+            display: inline-block;
+            color: #3498db;
+            text-decoration: none;
+            margin-top: 15px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+
+        .edit-task-section {
+            background-color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid #e74c3c;
+            margin-top: 20px;
+            animation: slideInUp 0.3s;
+        }
+
+        .task-edit-form {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            color: #ddd;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1.05em;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            background-color: #444;
+            border: 2px solid #555;
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: all 0.3s;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #e74c3c;
+            background-color: #484848;
+            box-shadow: 0 0 8px rgba(231, 76, 60, 0.3);
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .form-group small {
+            color: #aaa;
+            font-size: 0.85em;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .task-info-box {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 5px solid #3498db;
+            margin: 15px 0;
+        }
+
+        .task-info-box h3 {
+            margin: 0 0 15px 0;
+            color: #3498db;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #444;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-item .label {
+            color: #aaa;
+            font-weight: bold;
+        }
+
+        .info-item .value {
+            color: #ddd;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .btn-save {
+            flex: 1;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+        }
+
+        .btn-save:hover {
+            background-color: #c0392b;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(231, 76, 60, 0.6);
+        }
+
+        .btn-save:active {
+            transform: translateY(0);
+        }
+
+        .btn-cancel {
+            flex: 1;
+            background-color: #555;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 6px;
+            text-decoration: none;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-cancel:hover {
+            background-color: #666;
+            transform: translateY(-2px);
+        }
+
+        .btn-cancel:active {
+            transform: translateY(0);
+        }
+
+        @media (max-width: 600px) {
+            .edit-task-section {
+                padding: 20px;
+                border-radius: 8px;
+            }
+
+            .form-actions {
+                flex-direction: column;
+            }
+
+            .btn-save,
+            .btn-cancel {
+                width: 100%;
+            }
+
+            .task-info-box {
+                margin: 20px 0;
+            }
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+
+</body>
+</html>
