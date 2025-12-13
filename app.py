@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 
 # ★ GoogleのAIライブラリをインポート
 import google.generativeai as genai
+
+# ★ Discord連携用にrequestsをインポート
 import requests
 
 # --- 初期設定 ---

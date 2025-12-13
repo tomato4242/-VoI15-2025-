@@ -3,21 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social Guillotine - 怠惰是正アプリ</title>
+    <title>Social Guillotine - 怠惰な大学生是正アプリ</title>
+    <!-- CSSファイルを読み込みます -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
     <div class="container">
         <header>
-            <h1 class="app-title">☠️ Social Guillotine</h1>
-            <p class="subtitle">怠惰は「社会的な死」で償え。</p>
-            <button id="openModalBtn" class="add-btn">⚠️ 契約書に署名（タスク追加）</button>
+            <h1 class="app-title">☠️ 怠惰な大学生是正アプリ</h1>
+            <p class="subtitle">やる気の出ないあなたに向けたタスク管理アプリ</p>
+            <button id="openModalBtn" class="add-btn">⚠️ タスク追加</button>
         </header>
 
         <main>
             <ul class="task-list">
+                <!-- Flaskから渡されたタスクデータをループで表示します -->
                 {% for task in tasks %}
+                    <!-- is_punishedがTrueなら、expiredクラスを追加して見た目を変えます -->
                     <li class="task-item {% if task.is_punished %}expired{% endif %}">
                         <div class="task-info">
                             <span class="task-name">{{ task.title }}</span>
@@ -31,45 +34,50 @@
                                 {% endif %}
                             </div>
 
+                            <!-- is_punishedがTrueなら、執行済みメッセージを表示します -->
                             {% if task.is_punished %}
                                 <div class="punished-msg">💀 執行済み：ツイートが送信されました</div>
                             {% endif %}
                         </div>
 
+                        <!-- タスク削除（完了）ボタン -->
                         <form action="{{ url_for('delete_task', task_id=task.id) }}" method="post">
                             <button type="submit" class="delete-btn">解除（完了）</button>
                         </form>
                     </li>
                 {% else %}
-                    <li class="no-task">現在、命（プライド）は安全です。</li>
+                    <!-- タスクが一つもない場合に表示します -->
+                    <li class="no-task">現在、タスクはありません。</li>
                 {% endfor %}
             </ul>
         </main>
     </div>
 
+    <!-- タスク追加用モーダル -->
     <div id="addTaskModal" class="modal">
         <div class="modal-content input-mode">
             <span class="close-btn">&times;</span>
             <h2>💀 処刑契約書の作成</h2>
             <form action="{{ url_for('add_task') }}" method="post">
                 
-                <label>義務（タスク内容）</label>
+                <label>義務（Task content）</label>
                 <input type="text" name="task_title" placeholder="例：明日の1限に出席する" required>
 
                 <label>期限（Time Limit）</label>
                 <input type="datetime-local" name="deadline" required>
 
-                <label style="color: #e74c3c; font-weight: bold;">不履行時の社会的制裁（自動投稿）</label>
-                <textarea name="penalty_text" placeholder="例：私は口だけの無能です。明日〇〇で奢ります。" required></textarea>
+                <label style="color: #e74c3c; font-weight: bold;">遅れた時の投稿内容（自動投稿）</label>
+                <textarea name="penalty_text" placeholder="例：今日も一限に起きられませんでした。明日山田にご飯を奢ります。" required></textarea>
 
-                <button type="submit" class="danger-btn">🩸 血判を押して追加</button>
+                <button type="submit" class="danger-btn">タスクに追加</button>
             </form>
         </div>
     </div>
 
+    <!-- 期限切れ演出用（偽ツイート）モーダル -->
     <div id="fakeTweetModal" class="modal tweet-modal">
         <div class="modal-content tweet-content">
-            <h3 style="color: #1da1f2;">Twitter (X) 自動投稿通知</h3>
+            <h3 style="color: #1da1f2;">Discord自動投稿通知</h3>
             <p>以下の内容があなたのアカウントから投稿されました。</p>
             
             <div class="fake-tweet-card">
@@ -78,17 +86,36 @@
                     <div class="tweet-name">あなたの名前 <span style="color:gray">@lazy_student</span></div>
                 </div>
                 <div class="tweet-body" id="tweetTextDisplay">
-                    </div>
+                    <!-- ここにJavaScriptでツイート本文が挿入されます -->
+                </div>
                 <div class="tweet-footer">
                     <span>💬 12</span> <span>Undefined 89</span> <span>❤️ 204</span>
                 </div>
             </div>
 
-            <p style="margin-top: 20px; color: red; font-weight: bold;">社会的信用が失墜しました。</p>
-            <button onclick="closeTweetModal()" class="close-tweet-btn">絶望して閉じる</button>
+            <p style="margin-top: 20px; color: red; font-weight: bold;">あー...次はちゃんとやろうね。</p>
+            <button onclick="closeTweetModal()" class="close-tweet-btn">次は絶対に送れないという気持ちで閉じる</button>
         </div>
     </div>
 
+    <!-- ★★★ AIからの褒め言葉モーダル ★★★ -->
+    <!-- app.pyからflashメッセージがある時だけ、この部分がHTMLに出力されます -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div id="praiseModal" class="modal" style="display: block;">
+                    <div class="modal-content praise-modal-content">
+                        <span class="close-btn" id="closePraiseModalBtn">&times;</span>
+                        <h2 class="praise-title">🎉 AI からのメッセージ 🎉</h2>
+                        <!-- AIからのメッセージをここに表示します -->
+                        <p class="praise-message">{{ message }}</p>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- JavaScriptファイルを読み込みます -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
