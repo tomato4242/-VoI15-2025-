@@ -1,4 +1,4 @@
-<!-- templates/index.html - 拡張機能版 -->
+<!-- templates/index.html - アカウント機能対応版 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -12,8 +12,20 @@
     <div class="container">
         <!-- ヘッダー -->
         <header>
-            <h1 class="app-title">☠️ Social Guillotine</h1>
-            <p class="subtitle">怠惰な大学生は、社会的処刑に値する</p>
+            <div class="header-top">
+                <div>
+                    <h1 class="app-title">☠️ Social Guillotine</h1>
+                    <p class="subtitle">怠惰な大学生は、社会的処刑に値する</p>
+                </div>
+                <div class="header-user">
+                    <a href="{{ url_for('profile') }}" class="user-link" title="プロフィール">
+                        👤 {{ user.display_name or user.username }}
+                    </a>
+                    <a href="{{ url_for('logout') }}" style="color: #aaa; text-decoration: none; margin-left: 10px; font-size: 0.9em; border: 1px solid #555; padding: 5px 10px; border-radius: 15px; background: #333;">
+                        🚪 ログアウト
+                    </a>
+                </div>
+            </div>
             
             <!-- タブナビゲーション -->
             <div class="tabs">
@@ -101,6 +113,11 @@
                         <button type="submit" class="btn-primary">参加</button>
                         <button type="button" onclick="this.parentElement.style.display='none'" class="btn-secondary">キャンセル</button>
                     </form>
+
+                    <!-- 参加中のグループ一覧 -->
+                    <div id="myGroupsList" style="margin-top: 30px;">
+                        <!-- JavaScriptで生成 -->
+                    </div>
                 </div>
             </div>
 
@@ -182,5 +199,54 @@
 
     <!-- JavaScriptファイル読み込み -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    <style>
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .header-user {
+            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-link {
+            background-color: #2ecc71;
+            color: black;
+            padding: 10px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .user-link:hover {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+        }
+
+        @media (max-width: 600px) {
+            .header-top {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .header-user {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .user-link {
+                text-align: center;
+            }
+        }
+    </style>
 </body>
 </html>

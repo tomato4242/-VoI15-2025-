@@ -1,4 +1,4 @@
-// static/script.js - 拡張機能版
+// static/script.js - 改善版
 
 let processedPunishments = new Set();
 
@@ -7,14 +7,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const openModalBtn = document.getElementById('openModalBtn');
     const fakeTweetModal = document.getElementById('fakeTweetModal');
 
-    // モーダル制御
     if (openModalBtn) {
         openModalBtn.addEventListener('click', function() {
             modal.style.display = 'block';
         });
     }
 
-    // 背景クリックで閉じる
     window.addEventListener('click', function(event) {
         const modals = document.querySelectorAll('.modal');
         modals.forEach(m => {
@@ -24,13 +22,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // 初期化
     renderTaskList();
     updateStats();
     loadRankings();
     loadBadges();
+    loadGroups();
 
-    // 定期更新
     setInterval(checkForPunishments, 3000);
     setInterval(updateStats, 5000);
     setInterval(refreshTaskList, 10000);
@@ -39,15 +36,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ===== タブ切り替え =====
 function switchTab(tabName) {
-    // すべてのタブを非表示
     const tabs = document.querySelectorAll('.tab-content');
     tabs.forEach(tab => tab.classList.remove('active'));
     
-    // すべてのボタンを非アクティブ化
     const buttons = document.querySelectorAll('.tab-btn');
     buttons.forEach(btn => btn.classList.remove('active'));
     
-    // 選択されたタブを表示
     document.getElementById(tabName + '-tab').classList.add('active');
     event.target.classList.add('active');
 }
@@ -77,7 +71,7 @@ function renderTaskList() {
                 let statusIcon = '';
                 if (isPunished) {
                     statusClass = 'expired';
-                    statusIcon = '💀 処刑済み';
+                    statusIcon = '💀 処罰済み';
                 } else if (isExpired) {
                     statusClass = 'expired';
                     statusIcon = '⏰ 期限超過';
@@ -92,16 +86,19 @@ function renderTaskList() {
                         <div class="task-info">
                             <span class="task-name">${escapeHtml(task.title)}</span>
                             <div class="task-meta">
-                                <span class="deadline">⏳ ${deadlineStr}</span>
-                                <span class="penalty">💣 ${escapeHtml(task.penalty_text)}</span>
+                                <span class="deadline">⏱️ ${deadlineStr}</span>
+                                <span class="penalty">🎯 ${escapeHtml(task.penalty_text)}</span>
                             </div>
                             ${statusIcon ? `<div class="punished-msg">${statusIcon}</div>` : ''}
                         </div>
-                        <form method="post" action="/delete/${task.id}" style="margin: 0;">
-                            <button type="submit" class="delete-btn" onclick="return confirmDelete('${escapeHtml(task.title)}')">
-                                解除（完了）
-                            </button>
-                        </form>
+                        <div class="task-actions">
+                            <a href="/edit/${task.id}" class="edit-btn" title="編集">✏️</a>
+                            <form method="post" action="/delete/${task.id}" style="margin: 0;">
+                                <button type="submit" class="delete-btn" onclick="return confirmDelete('${escapeHtml(task.title)}')">
+                                    ✅
+                                </button>
+                            </form>
+                        </div>
                     </li>
                 `;
             }).join('');
@@ -136,11 +133,11 @@ function showFakeTweet(task) {
 
     const tweetContent = `
         <b>【自動投稿】</b><br>
-        私は怠惰な学生です。期限を守れませんでした。<br>
+        私は思慮ない学生です。期限を守れませんでした。<br>
         <br>
         <strong style="font-size: 1.1em;">${escapeHtml(task.penalty_text)}</strong><br>
         <br>
-        <span style="color:#1da1f2">#怠惰是正アプリ #SocialGuillotine</span>
+        <span style="color:#1da1f2">#思慮是正アプリ #SocialGuillotine</span>
     `;
 
     tweetTextDisplay.innerHTML = tweetContent;
@@ -227,6 +224,97 @@ function loadBadges() {
 }
 
 // ===== グループ =====
+function loadGroups() {
+    fetch('/api/groups')
+        .then(response => response.json())
+        .then(groups => {
+            const myGroupsList = document.getElementById('myGroupsList');
+            
+            if (!groups || groups.length === 0) {
+                myGroupsList.innerHTML = '<p style="text-align:center; color: #aaa; margin-top: 20px;">参加しているグループはありません</p>';
+                return;
+            }
+
+            myGroupsList.innerHTML = `
+                <div style="margin-top: 30px;">
+                    <h3>📍 参加中のグループ</h3>
+                    <div id="groupsContainer" style="display: grid; gap: 15px;">
+                        ${groups.map(group => `
+                            <div class="group-card">
+                                <div class="group-header">
+                                    <h4>${escapeHtml(group.name)}</h4>
+                                    <span class="invite-code">招待コード: <code>${group.invite_code}</code></span>
+                                </div>
+                                <div class="group-actions-buttons">
+                                    <button onclick="showGroupRanking(${group.id}, '${escapeHtml(group.name)}')" class="btn-view-ranking">📊 ランキング表示</button>
+                                    <form method="post" action="/group/${group.id}/leave" style="display: inline;">
+                                        <button type="submit" class="btn-leave-group" onclick="return confirm('本当に脱退しますか？')">👋 脱退</button>
+                                    </form>
+                                </div>
+                                <div id="ranking-${group.id}" style="margin-top: 15px; display: none;">
+                                    <!-- ランキングがここに表示される -->
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        })
+        .catch(error => console.error('グループ読み込みエラー:', error));
+}
+
+function showGroupRanking(groupId, groupName) {
+    const rankingDiv = document.getElementById(`ranking-${groupId}`);
+    
+    if (rankingDiv.style.display === 'block') {
+        rankingDiv.style.display = 'none';
+        return;
+    }
+
+    fetch(`/api/group-rankings/${groupId}`)
+        .then(response => response.json())
+        .then(rankings => {
+            if (!rankings || rankings.length === 0) {
+                rankingDiv.innerHTML = '<p style="text-align:center; color: #aaa;">メンバーがいません</p>';
+                rankingDiv.style.display = 'block';
+                return;
+            }
+
+            const table = `
+                <table class="group-ranking-table">
+                    <thead>
+                        <tr>
+                            <th>順位</th>
+                            <th>ユーザー</th>
+                            <th>怠惰度</th>
+                            <th>完了</th>
+                            <th>処刑</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rankings.map(r => `
+                            <tr>
+                                <td class="rank">${r.rank}</td>
+                                <td>${escapeHtml(r.username)}</td>
+                                <td class="score">${r.laziness_score.toFixed(1)}%</td>
+                                <td>${r.completed_tasks}</td>
+                                <td>${r.punished_tasks}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            rankingDiv.innerHTML = table;
+            rankingDiv.style.display = 'block';
+        })
+        .catch(error => {
+            console.error('グループランキング読み込みエラー:', error);
+            rankingDiv.innerHTML = '<p style="text-align:center; color: #e74c3c;">ランキングの読み込みに失敗しました</p>';
+            rankingDiv.style.display = 'block';
+        });
+}
+
 function showGroupCreateForm() {
     const form = document.getElementById('groupCreateForm');
     form.style.display = form.style.display === 'none' ? 'block' : 'none';
