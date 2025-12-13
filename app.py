@@ -10,7 +10,7 @@ class Config:
 app = Flask(__name__)
 app.config.from_object(Config())
 
-# --- データ保管場所（簡易データベース） ---
+# --- データ保管場所（簡易データベース） 
 # ここにタスクを保存します。
 tasks = []
 task_id_counter = 1
