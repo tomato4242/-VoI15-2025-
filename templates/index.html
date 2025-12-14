@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social Guillotine - 怠惰な大学生是正アプリ</title>
+    <title>怠惰な大学生是正アプリ</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -14,8 +14,8 @@
         <header>
             <div class="header-top">
                 <div>
-                    <h1 class="app-title">☠️ Social Guillotine</h1>
-                    <p class="subtitle">怠惰な大学生は、社会的処刑に値する</p>
+                    <h1 class="app-title">☠️ 怠惰是正アプリ</h1>
+                    <p class="subtitle">自分の怠惰を改めよう</p>
                 </div>
                 <div class="header-user">
                     <a href="{{ url_for('profile') }}" class="user-link" title="プロフィール">
@@ -50,12 +50,12 @@
                     <span class="stat-value" id="streakCount">0日</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">💀 処刑</span>
+                    <span class="stat-label">💀 遅れた回数</span>
                     <span class="stat-value" id="punishedCount">0</span>
                 </div>
             </div>
 
-            <button id="openModalBtn" class="add-btn">⚠️ 処刑契約書を作成</button>
+            <button id="openModalBtn" class="add-btn">⚠️ タスクを作成</button>
         </header>
 
         <!-- メインコンテンツ -->
@@ -78,7 +78,7 @@
                                 <th>ユーザー</th>
                                 <th>怠惰度</th>
                                 <th>完了</th>
-                                <th>処刑</th>
+                                <th>遅れた回数</th>
                             </tr>
                         </thead>
                         <tbody id="rankingBody">
@@ -144,9 +144,9 @@
     <div id="addTaskModal" class="modal">
         <div class="modal-content input-mode">
             <span class="close-btn" onclick="closeModal('addTaskModal')">&times;</span>
-            <h2>💀 処刑契約書の作成</h2>
+            <h2>💀 タスクの作成</h2>
             <form action="{{ url_for('add_task') }}" method="post">
-                <label>義務（Task content）</label>
+                <label>やること（Task content）</label>
                 <input type="text" name="task_title" placeholder="例：明日の1限に出席する" maxlength="200" required>
 
                 <label>期限（Time Limit）</label>
@@ -178,8 +178,8 @@
                 </div>
             </div>
 
-            <p style="margin-top: 20px; color: red; font-weight: bold;">あー...次はちゃんとやろうね。</p>
-            <button onclick="closeTweetModal()" class="close-tweet-btn">次は絶対に送れないという気持ちで閉じる</button>
+            <p style="margin-top: 20px; color: red; font-weight: bold;">あなたは今回タスクを実行できませんでした</p>
+            <button onclick="closeTweetModal()" class="close-tweet-btn">次は絶対に遅れないという気持ちで閉じる</button>
         </div>
     </div>
 
