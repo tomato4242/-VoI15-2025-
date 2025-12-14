@@ -15,13 +15,13 @@ import string
 
 load_dotenv()
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'social-guillotine-secret-key-12345')
+app.secret_key = os.getenv('SECRET_KEY', 'social-keeper-secret-key-12345')
 
-app.config['SESSION_COOKIE_NAME'] = 'social_guillotine_session'
+app.config['SESSION_COOKIE_NAME'] = 'social_keeper_session'
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///social_guillotine.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///social_keeper.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
