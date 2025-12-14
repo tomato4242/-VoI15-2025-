@@ -1,121 +1,252 @@
+<!-- templates/index.html - アカウント機能対応版 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social Guillotine - 怠惰是正アプリ</title>
-    <!-- CSSファイルを読み込みます -->
+    <title>怠惰な大学生是正アプリ</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
     <div class="container">
+        <!-- ヘッダー -->
         <header>
-            <h1 class="app-title">☠️ Social Guillotine</h1>
-            <p class="subtitle">怠惰は「社会的な死」で償え。</p>
-            <button id="openModalBtn" class="add-btn">⚠️ 契約書に署名（タスク追加）</button>
+            <div class="header-top">
+                <div>
+                    <h1 class="app-title">☠️ 怠惰是正アプリ</h1>
+                    <p class="subtitle">自分の怠惰を改めよう</p>
+                </div>
+                <div class="header-user">
+                    <a href="{{ url_for('profile') }}" class="user-link" title="プロフィール">
+                        👤 {{ user.display_name or user.username }}
+                    </a>
+                    <a href="{{ url_for('logout') }}" style="color: #aaa; text-decoration: none; margin-left: 10px; font-size: 0.9em; border: 1px solid #555; padding: 5px 10px; border-radius: 15px; background: #333;">
+                        🚪 ログアウト
+                    </a>
+                </div>
+            </div>
+            
+            <!-- タブナビゲーション -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('tasks')">📋 タスク</button>
+                <button class="tab-btn" onclick="switchTab('ranking')">🏆 ランキング</button>
+                <button class="tab-btn" onclick="switchTab('group')">👥 グループ</button>
+                <button class="tab-btn" onclick="switchTab('badges')">🎖️ バッジ</button>
+            </div>
+
+            <!-- 統計パネル -->
+            <div class="stats-panel">
+                <div class="stat-item">
+                    <span class="stat-label">📊 怠惰度</span>
+                    <span class="stat-value" id="lazynessScore">0.0%</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">✅ 完了</span>
+                    <span class="stat-value" id="completedCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">⚡ 連続</span>
+                    <span class="stat-value" id="streakCount">0日</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">💀 遅れた回数</span>
+                    <span class="stat-value" id="punishedCount">0</span>
+                </div>
+            </div>
+
+            <button id="openModalBtn" class="add-btn">⚠️ タスクを作成</button>
         </header>
 
+        <!-- メインコンテンツ -->
         <main>
-            <ul class="task-list">
-                <!-- Flaskから渡されたタスクデータをループで表示します -->
-                {% for task in tasks %}
-                    <!-- is_punishedがTrueなら、expiredクラスを追加して見た目を変えます -->
-                    <li class="task-item {% if task.is_punished %}expired{% endif %}">
-                        <div class="task-info">
-                            <span class="task-name">{{ task.title }}</span>
-                            
-                            <div class="task-meta">
-                                {% if task.deadline %}
-                                    <span class="deadline">⏳ {{ task.deadline.strftime('%Y/%m/%d %H:%M') }}</span>
-                                {% endif %}
-                                {% if task.penalty_text %}
-                                    <span class="penalty">💣 罰: {{ task.penalty_text }}</span>
-                                {% endif %}
-                            </div>
+            <!-- タスクタブ -->
+            <div id="tasks-tab" class="tab-content active">
+                <ul class="task-list" id="taskList">
+                    <!-- JavaScriptで動的に生成 -->
+                </ul>
+            </div>
 
-                            <!-- is_punishedがTrueなら、執行済みメッセージを表示します -->
-                            {% if task.is_punished %}
-                                <div class="punished-msg">💀 執行済み：ツイートが送信されました</div>
-                            {% endif %}
-                        </div>
+            <!-- ランキングタブ -->
+            <div id="ranking-tab" class="tab-content">
+                <div class="ranking-section">
+                    <h2>🏆 全体ランキング</h2>
+                    <table class="ranking-table" id="globalRanking">
+                        <thead>
+                            <tr>
+                                <th>順位</th>
+                                <th>ユーザー</th>
+                                <th>怠惰度</th>
+                                <th>完了</th>
+                                <th>遅れた回数</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rankingBody">
+                            <!-- JavaScriptで生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
-                        <!-- タスク削除（完了）ボタン -->
-                        <form action="{{ url_for('delete_task', task_id=task.id) }}" method="post">
-                            <button type="submit" class="delete-btn">解除（完了）</button>
-                        </form>
-                    </li>
-                {% else %}
-                    <!-- タスクが一つもない場合に表示します -->
-                    <li class="no-task">現在、命（プライド）は安全です。</li>
-                {% endfor %}
-            </ul>
+            <!-- グループタブ -->
+            <div id="group-tab" class="tab-content">
+                <div class="group-section">
+                    <h2>👥 グループ管理</h2>
+                    
+                    <div class="group-actions">
+                        <button onclick="showGroupCreateForm()" class="btn-primary">新しいグループを作成</button>
+                        <button onclick="showGroupJoinForm()" class="btn-primary">グループに参加</button>
+                    </div>
+
+                    <!-- グループ作成フォーム -->
+                    <form id="groupCreateForm" method="post" action="/group/create" style="display:none; margin-top: 20px; padding: 20px; background: #333; border-radius: 8px;">
+                        <h3>グループを作成</h3>
+                        <input type="text" name="group_name" placeholder="グループ名" required maxlength="100">
+                        <button type="submit" class="btn-primary">作成</button>
+                        <button type="button" onclick="this.parentElement.style.display='none'" class="btn-secondary">キャンセル</button>
+                    </form>
+
+                    <!-- グループ参加フォーム -->
+                    <form id="groupJoinForm" method="post" action="/group/join" style="display:none; margin-top: 20px; padding: 20px; background: #333; border-radius: 8px;">
+                        <h3>グループに参加</h3>
+                        <input type="text" name="invite_code" placeholder="招待コード (例: ABC123)" required maxlength="10">
+                        <button type="submit" class="btn-primary">参加</button>
+                        <button type="button" onclick="this.parentElement.style.display='none'" class="btn-secondary">キャンセル</button>
+                    </form>
+
+                    <!-- 参加中のグループ一覧 -->
+                    <div id="myGroupsList" style="margin-top: 30px;">
+                        <!-- JavaScriptで生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- バッジタブ -->
+            <div id="badges-tab" class="tab-content">
+                <div class="badges-section">
+                    <h2>🎖️ 獲得バッジ</h2>
+                    <div class="badges-grid" id="badgesGrid">
+                        <!-- JavaScriptで生成 -->
+                    </div>
+                    
+                    <h3 style="margin-top: 30px;">バッジ一覧</h3>
+                    <ul class="badge-list">
+                        <li>🔥 <strong>7日連続達成者</strong> - 7日連続でタスクを完了</li>
+                        <li>✨ <strong>10個完了達成者</strong> - 10個のタスクを完了</li>
+                        <li>👑 <strong>完璧主義者</strong> - 5個以上のタスクを処刑ゼロで完了</li>
+                    </ul>
+                </div>
+            </div>
         </main>
     </div>
 
-    <!-- タスク追加用モーダル -->
+    <!-- タスク追加モーダル -->
     <div id="addTaskModal" class="modal">
         <div class="modal-content input-mode">
-            <span class="close-btn">&times;</span>
-            <h2>💀 処刑契約書の作成</h2>
+            <span class="close-btn" onclick="closeModal('addTaskModal')">&times;</span>
+            <h2>💀 タスクの作成</h2>
             <form action="{{ url_for('add_task') }}" method="post">
-                
-                <label>義務（タスク内容）</label>
-                <input type="text" name="task_title" placeholder="例：明日の1限に出席する" required>
+                <label>やること（Task content）</label>
+                <input type="text" name="task_title" placeholder="例：明日の1限に出席する" maxlength="200" required>
 
                 <label>期限（Time Limit）</label>
                 <input type="datetime-local" name="deadline" required>
 
-                <label style="color: #e74c3c; font-weight: bold;">不履行時の社会的制裁（自動投稿）</label>
-                <textarea name="penalty_text" placeholder="例：私は口だけの無能です。明日〇〇で奢ります。" required></textarea>
+                <label style="color: #e74c3c; font-weight: bold;">遅れた時の投稿内容（自動投稿）</label>
+                <textarea name="penalty_text" placeholder="例：今日も一限に起きられませんでした。明日山田にご飯を奢ります。" maxlength="500" required></textarea>
 
-                <button type="submit" class="danger-btn">🩸 血判を押して追加</button>
+                <button type="submit" class="danger-btn">タスクに追加</button>
             </form>
         </div>
     </div>
 
-    <!-- 期限切れ演出用（偽ツイート）モーダル -->
+    <!-- 偽ツイートモーダル -->
     <div id="fakeTweetModal" class="modal tweet-modal">
         <div class="modal-content tweet-content">
-            <h3 style="color: #1da1f2;">Twitter (X) 自動投稿通知</h3>
+            <span class="close-btn" onclick="closeTweetModal()">&times;</span>
+            <h3 style="color: #1da1f2;">🔔 Discord自動投稿通知</h3>
             <p>以下の内容があなたのアカウントから投稿されました。</p>
             
             <div class="fake-tweet-card">
                 <div class="tweet-header">
                     <div class="tweet-icon"></div>
-                    <div class="tweet-name">あなたの名前 <span style="color:gray">@lazy_student</span></div>
+                    <div class="tweet-name">{{ user.display_name or 'あなた' }} <span style="color:gray">@lazy_student</span></div>
                 </div>
-                <div class="tweet-body" id="tweetTextDisplay">
-                    <!-- ここにJavaScriptでツイート本文が挿入されます -->
-                </div>
+                <div class="tweet-body" id="tweetTextDisplay"></div>
                 <div class="tweet-footer">
-                    <span>💬 12</span> <span>Undefined 89</span> <span>❤️ 204</span>
+                    <span>💬 12</span> <span>🔄 89</span> <span>❤️ 204</span>
                 </div>
             </div>
 
-            <p style="margin-top: 20px; color: red; font-weight: bold;">社会的信用が失墜しました。</p>
-            <button onclick="closeTweetModal()" class="close-tweet-btn">絶望して閉じる</button>
+            <p style="margin-top: 20px; color: red; font-weight: bold;">あなたは今回タスクを実行できませんでした</p>
+            <button onclick="closeTweetModal()" class="close-tweet-btn">次は絶対に遅れないという気持ちで閉じる</button>
         </div>
     </div>
 
-    <!-- ★★★ AIからの褒め言葉モーダル ★★★ -->
-    <!-- app.pyからflashメッセージがある時だけ、この部分がHTMLに出力されます -->
+    <!-- Flashメッセージ表示 -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            {% for category, message in messages %}
-                <div id="praiseModal" class="modal" style="display: block;">
-                    <div class="modal-content praise-modal-content">
-                        <span class="close-btn" id="closePraiseModalBtn">&times;</span>
-                        <h2 class="praise-title">🎉 AI Assistant 🎉</h2>
-                        <!-- AIからのメッセージをここに表示します -->
-                        <p class="praise-message">{{ message }}</p>
+            <div id="flashContainer" class="flash-container">
+                {% for category, message in messages %}
+                    <div class="flash-message flash-{{ category }}">
+                        <span>{{ message }}</span>
+                        <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
                     </div>
-                </div>
-            {% endfor %}
+                {% endfor %}
+            </div>
         {% endif %}
     {% endwith %}
 
-    <!-- JavaScriptファイルを読み込みます -->
+    <!-- JavaScriptファイル読み込み -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    <style>
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .header-user {
+            text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-link {
+            background-color: #2ecc71;
+            color: black;
+            padding: 10px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .user-link:hover {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+        }
+
+        @media (max-width: 600px) {
+            .header-top {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .header-user {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .user-link {
+                text-align: center;
+            }
+        }
+    </style>
 </body>
 </html>

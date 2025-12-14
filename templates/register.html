@@ -1,0 +1,51 @@
+<!-- templates/register.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アカウント作成 - 怠惰是正アプリ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .auth-container { width: 100%; max-width: 400px; padding: 30px; background: #2d2d2d; border-radius: 12px; border: 1px solid #444; }
+        h1 { text-align: center; color: #2ecc71; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        input { width: 100%; padding: 12px; background: #444; border: 1px solid #555; color: white; border-radius: 4px; }
+        .btn-submit { width: 100%; padding: 12px; background: #2ecc71; color: black; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; }
+        .btn-submit:hover { background: #27ae60; }
+        .link-text { text-align: center; margin-top: 15px; font-size: 0.9em; }
+        .link-text a { color: #3498db; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <h1>📝 契約書サイン</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="background: #e74c3c; color: white; padding: 10px; border-radius: 4px; margin-bottom: 15px; text-align: center;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="post">
+            <div class="form-group">
+                <input type="text" name="username" placeholder="ユーザーID (ログイン用)" required>
+            </div>
+            <div class="form-group">
+                <input type="text" name="display_name" placeholder="表示名 (例: 怠惰な太郎)" required>
+            </div>
+            <div class="form-group">
+                <input type="password" name="password" placeholder="パスワード" required>
+            </div>
+            <button type="submit" class="btn-submit">アカウントを作成する</button>
+        </form>
+        <div class="link-text">
+            すでに作成済みですか？<br>
+            <a href="{{ url_for('login') }}">ログインはこちら</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,207 +1,272 @@
-# app.py
+# app.py - 修正版（DBリセット時のセッションエラー対策済み）
 
-# --- モジュールのインポート ---
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
+from flask_sqlalchemy import SQLAlchemy
 from flask_apscheduler import APScheduler
-from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
+from datetime import datetime, timedelta
 import random
 import os
 from dotenv import load_dotenv
-
-# ★ GoogleのAIライブラリをインポート
 import google.generativeai as genai
 import requests
+import string
 
-# --- 初期設定 ---
 load_dotenv()
 app = Flask(__name__)
-app.secret_key = 'social-guillotine-secret-key'
+app.secret_key = os.getenv('SECRET_KEY', 'social-guillotine-secret-key-12345')
 
-# ★ Google Gemini APIキーを設定
+app.config['SESSION_COOKIE_NAME'] = 'social_guillotine_session'
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///social_guillotine.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
 try:
-    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if api_key and api_key != "test_key_here":
+        genai.configure(api_key=api_key)
 except Exception as e:
-    print(f"【APIキー設定エラー】: {e}")
+    print(f"API キー設定エラー: {e}")
 
 
-# --- データ保管場所（簡易データベース） ---
-tasks = []
-task_id_counter = 1
+# --- データベースモデル ---
+class User(db.Model):
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+    display_name = db.Column(db.String(100))
+    bio = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    
+    stats = db.relationship('UserStats', uselist=False, back_populates='user')
+    tasks = db.relationship('Task', back_populates='user')
+    badges = db.relationship('Badge', back_populates='user')
+    group_memberships = db.relationship('GroupMember', back_populates='user')
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 
-# --- バックアップの褒め言葉生成関数 ---
+class UserStats(db.Model):
+    __tablename__ = 'user_stats'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    total_tasks = db.Column(db.Integer, default=0)
+    completed_tasks = db.Column(db.Integer, default=0)
+    punished_tasks = db.Column(db.Integer, default=0)
+    current_streak = db.Column(db.Integer, default=0)
+    max_streak = db.Column(db.Integer, default=0)
+    laziness_score = db.Column(db.Float, default=0.0)
+    last_activity = db.Column(db.DateTime, default=datetime.now)
+    
+    user = db.relationship('User', back_populates='stats')
+    
+    def calculate_laziness_score(self):
+        if self.total_tasks == 0:
+            return 0.0
+        laziness = (self.punished_tasks / self.total_tasks) * 100
+        return min(laziness, 100.0)
+    
+    def to_dict(self):
+        return {
+            'total_tasks': self.total_tasks,
+            'completed_tasks': self.completed_tasks,
+            'punished_tasks': self.punished_tasks,
+            'laziness_score': round(self.laziness_score, 1),
+            'current_streak': self.current_streak,
+            'max_streak': self.max_streak
+        }
+
+
+class Task(db.Model):
+    __tablename__ = 'tasks'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    title = db.Column(db.String(200), nullable=False)
+    deadline = db.Column(db.DateTime)
+    penalty_text = db.Column(db.String(500))
+    is_punished = db.Column(db.Boolean, default=False)
+    is_completed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    completed_at = db.Column(db.DateTime)
+    
+    user = db.relationship('User', back_populates='tasks')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'deadline': self.deadline.isoformat() if self.deadline else None,
+            'penalty_text': self.penalty_text,
+            'is_punished': self.is_punished,
+            'is_completed': self.is_completed,
+            'created_at': self.created_at.isoformat()
+        }
+
+
+class Group(db.Model):
+    __tablename__ = 'groups'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    invite_code = db.Column(db.String(10), unique=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    
+    members = db.relationship('GroupMember', back_populates='group')
+
+
+class GroupMember(db.Model):
+    __tablename__ = 'group_members'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    joined_at = db.Column(db.DateTime, default=datetime.now)
+    
+    group = db.relationship('Group', back_populates='members')
+    user = db.relationship('User', back_populates='group_memberships')
+
+
+class Badge(db.Model):
+    __tablename__ = 'badges'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    badge_type = db.Column(db.String(50), nullable=False)
+    badge_name = db.Column(db.String(100), nullable=False)
+    badge_icon = db.Column(db.String(50))
+    unlocked_at = db.Column(db.DateTime, default=datetime.now)
+    
+    user = db.relationship('User', back_populates='badges')
+
+
+# --- ヘルパー関数 ---
+
+# 【修正済み】ログイン必須デコレータ
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # 1. セッションがない場合
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        
+        # 2. セッションはあるがDBにユーザーがいない場合（DBリセット時対策）
+        user = User.query.get(session['user_id'])
+        if not user:
+            session.clear()
+            flash('セッションが無効です。再度ログインしてください。', 'error')
+            return redirect(url_for('login'))
+            
+        return f(*args, **kwargs)
+    return decorated_function
+
+def get_current_user():
+    if 'user_id' not in session:
+        return None
+    return User.query.get(session['user_id'])
+
+def get_user_stats(user_id):
+    stats = UserStats.query.filter_by(user_id=user_id).first()
+    if not stats:
+        stats = UserStats(user_id=user_id)
+        db.session.add(stats)
+        db.session.commit()
+    return stats
+
+def update_user_stats(user_id):
+    try:
+        stats = get_user_stats(user_id)
+        all_tasks = Task.query.filter_by(user_id=user_id).all()
+        
+        stats.total_tasks = len(all_tasks)
+        stats.completed_tasks = len([t for t in all_tasks if t.is_completed])
+        stats.punished_tasks = len([t for t in all_tasks if t.is_punished])
+        stats.laziness_score = stats.calculate_laziness_score()
+        stats.last_activity = datetime.now()
+        
+        db.session.commit()
+        user = User.query.get(user_id)
+        check_and_unlock_badges(user, stats)
+        return stats
+    except Exception as e:
+        print(f"統計更新エラー: {e}")
+        db.session.rollback()
+        return get_user_stats(user_id)
+
+def check_and_unlock_badges(user, stats):
+    if not user:
+        return
+        
+    badges_to_unlock = []
+    
+    if stats.current_streak >= 7:
+        if not Badge.query.filter_by(user_id=user.id, badge_type='streak_7').first():
+            badges_to_unlock.append(('streak_7', '7日連続達成者', '🔥'))
+    
+    if stats.completed_tasks >= 10:
+        if not Badge.query.filter_by(user_id=user.id, badge_type='completion_10').first():
+            badges_to_unlock.append(('completion_10', '10個完了達成者', '✨'))
+    
+    if stats.total_tasks >= 5 and stats.punished_tasks == 0:
+        if not Badge.query.filter_by(user_id=user.id, badge_type='perfect').first():
+            badges_to_unlock.append(('perfect', '完璧主義者', '👑'))
+    
+    for badge_type, badge_name, badge_icon in badges_to_unlock:
+        badge = Badge(
+            user_id=user.id,
+            badge_type=badge_type,
+            badge_name=badge_name,
+            badge_icon=badge_icon
+        )
+        db.session.add(badge)
+        flash(f"🎖️ バッジ解除: {badge_icon} {badge_name}", 'success')
+    
+    if badges_to_unlock:
+        db.session.commit()
+
+def generate_invite_code():
+    while True:
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        if not Group.query.filter_by(invite_code=code).first():
+            return code
+
 def generate_backup_praise_message():
     messages = [
-        "素晴らしい！完璧な仕事ぶりですね！", "やりましたね！この調子でいきましょう！",
-        "見事です！あなたは怠惰とは無縁ですね。", "お疲れ様でした。早期完了、さすがです！"
+        "素晴らしい！完璧な仕事ぶりですね！😄",
+        "やりましたね！この調子で行きましょう！💪",
+        "見事です！あなたは思慮とは無縁ですね。✨",
+        "お疲れ様でした。早期完了、さすがです！🎉"
     ]
     return random.choice(messages)
 
-# --- Google Geminiを呼び出す機能 ---
 def generate_praise_with_ai(task_title):
-    """Google Gemini APIを使用してタスク完了の褒め言葉を生成"""
     try:
-        model = genai.GenerativeModel('gemini-pro') # モデル名を修正（previewなどが不要な場合が多いです）
-        prompt = f"""
-        あなたは、ユーザーを励ますのが得意な、非常にポジティブなAIアシスタントです。
-        ユーザーが完了したタスク「{task_title}」を褒めてください。
-        簡潔に、日本語で、絵文字を交えて賞賛の言葉を生成してください。
-        """
-        response = model.generate_content(prompt)
-        return response.text.strip()
+        if not os.getenv("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY") == "test_key_here":
+            return generate_backup_praise_message()
+        model = genai.GenerativeModel('gemini-pro')
+        prompt = f"「{task_title}」を実行したことを褒めてください。日本語で、絵文字を交えて、2～3文程度。"
+        response = model.generate_content(prompt, timeout=10)
+        return response.text.strip() if response.text else generate_backup_praise_message()
     except Exception as e:
         print(f"Google AI APIエラー: {e}")
         return generate_backup_praise_message()
 
-
-# --- ★★★ Discord通知機能 (新規追加) ★★★ ---
 def send_discord_punishment(task_title, penalty_text):
-    """Discord Webhookに制裁メッセージを送信する"""
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
-    
-    # URLが設定されていない場合は何もしない
-    if not webhook_url:
-        print("Discord Webhook URLが設定されていません。")
-        return
+    if not webhook_url or webhook_url == "https://discordapp.com/api/webhooks/dummy/dummy":
+        return False
 
-    # メッセージ内容（埋め込みメッセージ）
     data = {
-        "username": "Social Guillotine 執行人",
-        "avatar_url": "https://cdn-icons-png.flaticon.com/512/260/260226.png", # 任意のアイコン
-        "embeds": [
-            {
-                "title": "☠️ 社会的制裁が執行されました",
-                "description": "愚かな人間が、自ら定めた期限を守れませんでした。\nここにその罪と罰を晒します。",
-                "color": 15158332, # 赤色 (Decimal Color)
-                "fields": [
-                    {
-                        "name": "破られた誓い（タスク）",
-                        "value": f"「{task_title}」",
-                        "inline": False
-                    },
-                    {
-                        "name": "執行された罰",
-                        "value": f"**{penalty_text}**",
-                        "inline": False
-                    }
-                ],
-                "footer": {
-                    "text": "怠惰は死に値する。"
-                }
-            }
-        ]
-    }
-
-    try:
-        response = requests.post(webhook_url, json=data)
-        if response.status_code == 204:
-            print("Discordへの制裁通知に成功しました。")
-        else:
-            print(f"Discordへの送信失敗: {response.status_code}")
-    except Exception as e:
-        print(f"Discord通信エラー: {e}")
-
-
-# --- ★★★ 期限監視ジョブ (新規追加) ★★★ ---
-def check_deadlines():
-    """定期的に実行され、期限切れタスクを検出して処理する"""
-    global tasks
-    now = datetime.now()
-    
-    # Flaskのコンテキスト内で実行（DB操作などが必要になった場合に備えて）
-    with app.app_context():
-        for task in tasks:
-            # 期限が設定されており、現在時刻を過ぎていて、まだ処刑フラグが立っていない場合
-            if task['deadline'] and task['deadline'] < now and not task['is_punished']:
-                
-                # 1. フラグを更新（二重送信防止）
-                task['is_punished'] = True
-                task['needs_popup'] = True # フロントエンドでの演出用フラグ
-                
-                print(f"【期限切れ】タスク: {task['title']}")
-                
-                # 2. Discordに通知を送信
-                send_discord_punishment(task['title'], task['penalty_text'])
-
-
-# --- /delete ルート ---
-@app.route('/delete/<int:task_id>', methods=['POST'])
-def delete_task(task_id):
-    global tasks
-    task_to_delete = next((task for task in tasks if task['id'] == task_id), None)
-    
-    if task_to_delete:
-        # 期限内でまだ処刑されていない場合のみ褒める
-        if task_to_delete['deadline'] and task_to_delete['deadline'] > datetime.now() and not task_to_delete['is_punished']:
-            task_title = task_to_delete.get('title', '素晴らしいタスク')
-            
-            # Google Geminiで褒め言葉生成
-            message = generate_praise_with_ai(task_title)
-            
-            flash(message, 'success')
-            print(f"【早期完了】Google AIからのメッセージ: {message}")
-
-    tasks = [task for task in tasks if task['id'] != task_id]
-    return redirect(url_for('index'))
-
-
-# --- スケジューラ設定 ---
-scheduler = APScheduler()
-scheduler.init_app(app)
-
-# ★ 10秒ごとに check_deadlines を実行するジョブを追加
-scheduler.add_job(id='deadline_check_job', func=check_deadlines, trigger='interval', seconds=10)
-
-scheduler.start()
-
-
-# --- ルーティング ---
-@app.route('/')
-def index():
-    return render_template('index.html', tasks=tasks)
-
-@app.route('/add', methods=['POST'])
-def add_task():
-    global task_id_counter
-    title = request.form.get('task_title')
-    deadline_str = request.form.get('deadline') 
-    penalty_text = request.form.get('penalty_text')
-
-    if title:
-        deadline_dt = None
-        if deadline_str:
-            try:
-                deadline_dt = datetime.strptime(deadline_str, '%Y-%m-%dT%H:%M')
-            except ValueError:
-                pass 
-
-        new_task = {
-            'id': task_id_counter,
-            'title': title,
-            'deadline': deadline_dt,       
-            'penalty_text': penalty_text,  
-            'is_punished': False,
-            'needs_popup': False
-        }
-        tasks.append(new_task)
-        task_id_counter += 1
-        
-    return redirect(url_for('index'))
-
-@app.route('/check_punishments')
-def check_punishments():
-    """フロントエンドからのポーリング用API"""
-    punished_tasks = []
-    for task in tasks:
-        # サーバー側の監視ジョブ(check_deadlines)によって needs_popup が True になったものを返す
-        if task.get('needs_popup'):
-            punished_tasks.append({
-                'title': task['title'],
-                'penalty_text': task['penalty_text']
-            })
-            # 一度ポップアップ用データを返したらフラグを下ろす（再表示防止）
-            task['needs_popup'] = False
-    return jsonify(punished_tasks)
-
-if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False)
+        "username": "Social
