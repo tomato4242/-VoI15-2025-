@@ -1,0 +1,327 @@
+<!-- templates/profile.html - プロフィール表示・編集ページ -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プロフィール - 怠惰是正アプリ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="container">
+        <!-- ヘッダー -->
+        <header>
+            <h1 class="app-title">☠️ 怠惰是正アプリ</h1>
+            <a href="{{ url_for('index') }}" class="back-link">← タスク一覧に戻る</a>
+        </header>
+
+        <!-- プロフィールセクション -->
+        <div class="profile-section">
+            <div class="profile-card">
+                <div class="profile-header">
+                    <div class="profile-avatar">👤</div>
+                    <div class="profile-info">
+                        <h2>{{ user.display_name or user.username }}</h2>
+                        <p class="user-id">ID: {{ user.username }}</p>
+                        <p class="join-date">参加: {{ user.created_at.strftime('%Y年%m月%d日') }}</p>
+                    </div>
+                </div>
+
+                <!-- 統計情報 -->
+                <div class="profile-stats">
+                    <div class="stat">
+                        <span class="stat-label">📊 怠惰度</span>
+                        <span class="stat-value">{{ "%.1f" | format(stats.laziness_score) }}%</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">✅ 完了タスク</span>
+                        <span class="stat-value">{{ stats.completed_tasks }}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">💀 遅れたタスク</span>
+                        <span class="stat-value">{{ stats.punished_tasks }}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">⚡ 連続達成</span>
+                        <span class="stat-value">{{ stats.current_streak }}日</span>
+                    </div>
+                </div>
+
+                <!-- 自己紹介 -->
+                {% if user.bio %}
+                    <div class="bio-section">
+                        <h3>自己紹介</h3>
+                        <p>{{ user.bio }}</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- プロフィール編集フォーム -->
+            <div class="edit-form-section">
+                <h3>📝 プロフィール編集</h3>
+                <form method="post" action="{{ url_for('profile') }}" class="profile-form">
+                    <div class="form-group">
+                        <label>表示名</label>
+                        <input type="text" name="display_name" value="{{ user.display_name or '' }}" placeholder="表示する名前" maxlength="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label>自己紹介</label>
+                        <textarea name="bio" placeholder="自分について教えてください" maxlength="500">{{ user.bio or '' }}</textarea>
+                    </div>
+
+                    <button type="submit" class="btn-update">✅ 更新</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Flashメッセージ表示 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div id="flashContainer" class="flash-container">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            <span>{{ message }}</span>
+                            <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <style>
+        .back-link {
+            display: inline-block;
+            color: #3498db;
+            text-decoration: none;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+
+        .back-link:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+
+        .profile-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .profile-card {
+            background-color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid #2ecc71;
+            animation: fadeIn 0.3s;
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #444;
+            padding-bottom: 20px;
+        }
+
+        .profile-avatar {
+            font-size: 4em;
+            background-color: #2ecc71;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .profile-info h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.8em;
+            color: #2ecc71;
+        }
+
+        .user-id {
+            color: #aaa;
+            margin: 5px 0;
+        }
+
+        .join-date {
+            color: #888;
+            font-size: 0.9em;
+            margin: 0;
+        }
+
+        .profile-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .profile-stats .stat {
+            text-align: center;
+        }
+
+        .profile-stats .stat-label {
+            display: block;
+            color: #aaa;
+            font-size: 0.85em;
+            margin-bottom: 8px;
+        }
+
+        .profile-stats .stat-value {
+            display: block;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+
+        .bio-section {
+            background-color: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+
+        .bio-section h3 {
+            margin: 0 0 10px 0;
+            color: #3498db;
+        }
+
+        .bio-section p {
+            margin: 0;
+            color: #ddd;
+            word-wrap: break-word;
+        }
+
+        .edit-form-section {
+            background-color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid #e74c3c;
+        }
+
+        .edit-form-section h3 {
+            color: #e74c3c;
+            margin-top: 0;
+        }
+
+        .profile-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            color: #ddd;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            background-color: #444;
+            border: 2px solid #555;
+            color: white;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #e74c3c;
+            background-color: #484848;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .btn-update {
+            background-color: #2ecc71;
+            color: black;
+            border: none;
+            padding: 15px 25px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+        }
+
+        .btn-update:hover {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(46, 204, 113, 0.6);
+        }
+
+        .btn-update:active {
+            transform: translateY(0);
+        }
+
+        @media (max-width: 900px) {
+            .profile-section {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .profile-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 15px;
+            }
+
+            .profile-avatar {
+                width: 80px;
+                height: 80px;
+                font-size: 3em;
+            }
+
+            .profile-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-card,
+            .edit-form-section {
+                padding: 20px;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+
+</body>
+</html>
