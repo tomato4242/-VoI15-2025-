@@ -1,6 +1,3 @@
-# seed_data.py - テストデータ投入スクリプト
-# 審査員がすぐに動作確認できるようにダミーデータを生成
-
 from app import app, db, User, Task, UserStats, Group, GroupMember, Badge
 from datetime import datetime, timedelta
 import sys
