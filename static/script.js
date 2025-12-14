@@ -133,7 +133,7 @@ function showFakeTweet(task) {
 
     const tweetContent = `
         <b>【自動投稿】</b><br>
-        私は思慮ない学生です。期限を守れませんでした。<br>
+        私は期限を守れませんでした。<br>
         <br>
         <strong style="font-size: 1.1em;">${escapeHtml(task.penalty_text)}</strong><br>
         <br>

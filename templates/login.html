@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ログイン - Social Keeper</title>
+    <title>ログイン - 怠惰是正アプリ</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
@@ -20,7 +20,7 @@
 </head>
 <body>
     <div class="auth-container">
-        <h1>Social Keeper</h1>
+        <h1>☠️ 怠惰是正アプリ</h1>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -37,10 +37,10 @@
             <div class="form-group">
                 <input type="password" name="password" placeholder="パスワード" required>
             </div>
-            <button type="submit" class="btn-submit">ログインして地獄へ戻る</button>
+            <button type="submit" class="btn-submit">ログインしてアプリへ戻る</button>
         </form>
         <div class="link-text">
-            まだ契約書を交わしていませんか？<br>
+            まだタスクを作っていませんか？<br>
             <a href="{{ url_for('register') }}">新規アカウント作成はこちら</a>
         </div>
     </div>

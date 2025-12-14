@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>アカウント作成 - Social Keeper</title>
+    <title>アカウント作成 - 怠惰是正アプリ</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
@@ -40,10 +40,10 @@
             <div class="form-group">
                 <input type="password" name="password" placeholder="パスワード" required>
             </div>
-            <button type="submit" class="btn-submit">契約する (アカウント作成)</button>
+            <button type="submit" class="btn-submit">アカウントを作成する</button>
         </form>
         <div class="link-text">
-            すでに契約済みですか？<br>
+            すでに作成済みですか？<br>
             <a href="{{ url_for('login') }}">ログインはこちら</a>
         </div>
     </div>

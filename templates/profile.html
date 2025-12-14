@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>プロフィール - Social Keeper</title>
+    <title>プロフィール - 怠惰是正アプリ</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -12,7 +12,7 @@
     <div class="container">
         <!-- ヘッダー -->
         <header>
-            <h1 class="app-title">Social Keeper</h1>
+            <h1 class="app-title">☠️ 怠惰是正アプリ</h1>
             <a href="{{ url_for('index') }}" class="back-link">← タスク一覧に戻る</a>
         </header>
 
@@ -39,7 +39,7 @@
                         <span class="stat-value">{{ stats.completed_tasks }}</span>
                     </div>
                     <div class="stat">
-                        <span class="stat-label">💀 処罰タスク</span>
+                        <span class="stat-label">💀 遅れたタスク</span>
                         <span class="stat-value">{{ stats.punished_tasks }}</span>
                     </div>
                     <div class="stat">
