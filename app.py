@@ -1,5 +1,3 @@
-# app.py - 修正版（DBリセット時のセッションエラー対策済み）
-
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_apscheduler import APScheduler
